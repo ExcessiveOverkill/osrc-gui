@@ -1,0 +1,19 @@
+[package]
+name = "osrc_gui"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chrono = { version = "0.4.41", features = ["serde"] }
+convert_case = "0.8.0"
+derive-alias = "0.1.1"
+discord-rich-presence = "0.2.5"
+eframe = "0.31.1"
+egui = "0.31.1"
+egui-snarl = { version = "0.7.1", features = ["serde"] }
+rfd = "0.15.3"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+serde_yaml = "0.9.34"
+strum = { version = "0.27.1", features = ["derive"] }
+strum_macros = "0.27.1"
