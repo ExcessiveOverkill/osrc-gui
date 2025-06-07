@@ -17,50 +17,74 @@ derive_node! {
 pub enum OSRCNode {
     Constant {
         itype: PinType,
-        value: String
+        value: String,
+        node_name: String,
     },
     // Api calls would set this value
-    ApiFloatInput {
-        name: String,
-        min: Option<f32>,
-        max: Option<f32>,
-        default: Option<f32>,
-        timeout: Option<f32>,
+    ApiInput {
+        min: Option<f64>,
+        max: Option<f64>,
+        default: Option<f64>,
+        timeout: Option<f64>,
         itype: PinType,
+        node_name: String,
     },
     // The api would read this value
-    ApiFloatOutput {
-        name: String,
+    ApiOutput {
         itype: PinType,
+        node_name: String,
+    },
+    PIController {
+        p: f32,
+        i: f32,
+        i_limit: f32,
+        output_min: f32,
+        output_max: f32,
+        node_name: String,
+    },
+    VelEstimator {
+        itype: PinType,
+        alpha: f32,
     },
     LogicGate {
         gtype: GateType,
     },
     Comparator {
-            itype: PinType,
-            comparison: ValueCompare
-        },
+        itype: PinType,
+        comparison: ValueCompare
+    },
     MathOperation {
         itype: PinType,
         operator: MathOperation,
     },
     Multiplexer {
-            itype: PinType,
-            input_bits: usize
-        },
+        itype: PinType,
+        input_bits: usize
+    },
     BitwiseSplit {
         num_bits: usize,
     },
     BitwiseJoin {
         num_bits: usize,
     },
-    //Edge vs Signal Delay
-    Delay {
+    EdgeDelay {
         cycles: usize,
+        rising_edge: bool,
+        falling_edge: bool,
+    },
+    CycleDelay {
+        cycles: usize,
+        itype: PinType,
     },
     Converter {
-        output: PinType,
-        num_inputs: usize,
+        input_type: PinType,
+        output_type: PinType,
+        direct_mode: bool,
+        input_min: String,
+        input_max: String,
+        output_min: String,
+        output_max: String,
+        invert: bool,
     },
     SerialDevice {
         enabled: bool,
@@ -121,7 +145,7 @@ pub enum MathOperation {
     Nary(NaryOperation, usize),
     BinaryOperation(BinaryOperation),
     UnaryOperation(UnaryOperation),
-        #[default]
+    #[default]
     Invalid
 }
 }
@@ -129,16 +153,19 @@ pub enum MathOperation {
 derive_node! {
 pub enum NaryOperation {
     #[default]
-        ADD,
+    ADD,
     MUL,
     DIV,
+    MIN,
+    MAX,
+    AVG
 }
 }
 
 derive_node! {
 pub enum BinaryOperation {
     #[default]
-        SQRT,
+    SQRT,
     POW,
     LOG,
 }
@@ -146,7 +173,7 @@ pub enum BinaryOperation {
 
 derive_node! {
 pub enum UnaryOperation {
-        #[default]
+    #[default]
     LN,
     LOG10,
     SINE,
@@ -156,6 +183,7 @@ pub enum UnaryOperation {
     ACOS,
     ATAN,
     NEGATE,
+    ABS,
 }
 }
 
@@ -167,16 +195,12 @@ impl OSRCNode {
 
     pub fn pin_type_input(&self, idx: usize) -> PinType {
         match (self, idx) {
-            (OSRCNode::ApiFloatOutput { itype, .. }, idx) => *itype,
-            // (OSRCNode::AndGate { inputs: _ }, _) => PinType::Bool,
-            // (OSRCNode::OrGate { inputs: _ }, _) => PinType::Bool,
-            // (OSRCNode::NotGate, _) => PinType::Bool,
-            // (OSRCNode::NandGate { inputs: _ }, _) => PinType::Bool,
-            // (OSRCNode::NorGate { inputs: _ }, _) => PinType::Bool,
+            (OSRCNode::ApiOutput { itype, .. }, idx) => *itype,
             (OSRCNode::BitwiseSplit { num_bits }, _) => PinType::from_size(*num_bits),
             (OSRCNode::BitwiseJoin { num_bits }, _) => PinType::Bool,
-            (OSRCNode::Delay { cycles }, _) => PinType::UNDEFINED,
-            (OSRCNode::Converter { .. }, _) => PinType::UNDEFINED,
+            (OSRCNode::EdgeDelay { cycles, .. }, _) => PinType::Bool,
+            (OSRCNode::CycleDelay { cycles, itype, .. }, _) => *itype,
+            (OSRCNode::Converter { input_type,   .. }, _) => *input_type,
             (OSRCNode::LogicGate { .. }, _) => PinType::Bool,
             (OSRCNode::SerialDevice { .. }, idx) => OSRCNode::serial_type(idx),
             (OSRCNode::SerialWrite { itype, .. }, _) => *itype,
@@ -184,7 +208,7 @@ impl OSRCNode {
             (OSRCNode::GlobalVariableOutput { .. }, _) => PinType::NONE,
             (OSRCNode::GlobalVariableInput { .. }, _) => PinType::UNDEFINED,
             (OSRCNode::MathOperation { itype, .. }, _) => *itype,
-            (OSRCNode::ApiFloatInput { .. }, _) => PinType::NONE,
+            (OSRCNode::ApiInput { .. }, _) => PinType::NONE,
             (OSRCNode::Invalid, _) => PinType::NONE,
             (OSRCNode::Constant { .. }, _) => PinType::NONE,
             (OSRCNode::Comparator { itype, .. }, idx) => *itype,
@@ -194,7 +218,9 @@ impl OSRCNode {
                 } else {
                     *itype
                 }
-            }
+            },
+            (OSRCNode::PIController { .. }, _) => PinType::F32,
+            (OSRCNode::VelEstimator { itype, .. }, _) => *itype,
         }
     }
 
@@ -207,7 +233,7 @@ impl OSRCNode {
 
     pub fn pin_type_output(&self, idx: usize) -> PinType {
         match (self, idx) {
-            (OSRCNode::ApiFloatInput { itype, .. }, idx) => *itype,
+            (OSRCNode::ApiInput { itype, .. }, idx) => *itype,
             // (OSRCNode::AndGate { inputs: _ }, _) => PinType::Bool,
             // (OSRCNode::OrGate { inputs: _ }, _) => PinType::Bool,
             // (OSRCNode::NotGate, _) => PinType::Bool,
@@ -215,8 +241,9 @@ impl OSRCNode {
             // (OSRCNode::NorGate { inputs: _ }, _) => PinType::Bool,
             (OSRCNode::BitwiseSplit { num_bits }, _) => PinType::Bool,
             (OSRCNode::BitwiseJoin { num_bits }, _) => PinType::from_size(*num_bits),
-            (OSRCNode::Delay { cycles }, _) => PinType::UNDEFINED,
-            (OSRCNode::Converter { output, .. }, _) => *output,
+            (OSRCNode::EdgeDelay { cycles, .. }, _) => PinType::Bool,
+            (OSRCNode::CycleDelay { cycles, itype, .. }, _) => *itype,
+            (OSRCNode::Converter { output_type, .. }, _) => *output_type,
             (OSRCNode::LogicGate { gtype }, _) => PinType::Bool,
             (OSRCNode::SerialDevice { .. }, _) => PinType::SERIAL,
             (OSRCNode::SerialWrite { .. }, _) => PinType::SERIAL,
@@ -226,11 +253,13 @@ impl OSRCNode {
             //TODO:
             //Query these from list!
             (OSRCNode::MathOperation { itype, .. }, _) => *itype,
-            (OSRCNode::ApiFloatOutput { name, itype }, _) => *itype,
+            (OSRCNode::ApiOutput { node_name, itype }, _) => *itype,
             (OSRCNode::Invalid, _) => PinType::NONE, // _ => PinType::NONE,
             (OSRCNode::Constant { itype, .. }, _) => *itype,
             (OSRCNode::Comparator { .. }, _) => PinType::Bool,
             (OSRCNode::Multiplexer { itype, .. }, _) => *itype,
+            (OSRCNode::PIController { .. }, _) => PinType::F32,
+            (OSRCNode::VelEstimator { itype, .. }, _) => *itype,
         }
     }
     // pub fn output_value(&self, idx: usize) ->

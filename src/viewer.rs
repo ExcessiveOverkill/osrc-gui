@@ -1,4 +1,4 @@
-use std::ops::RangeInclusive;
+use std::{collections::btree_map::Range, ops::RangeInclusive};
 
 use convert_case::Casing;
 use egui::{TextEdit, Ui, Widget, emath::Numeric};
@@ -46,8 +46,8 @@ fn opt_drag<Num: Numeric + Default>(
     }
 }
 
-fn pintype_sel(mut ui: &mut Ui, mut itype: &mut PinType) {
-    combo_select(ui, "Select Type:".to_string(), itype, PinType::iter());
+fn pintype_sel(mut ui: &mut Ui, mut itype: &mut PinType, label: String) {
+    combo_select(ui, label, itype, PinType::iter());
 }
 
 //
@@ -63,17 +63,18 @@ impl SnarlViewer<OSRCNode> for OSRCViewer {
 
     fn inputs(&mut self, node: &OSRCNode) -> usize {
         match node {
-            OSRCNode::ApiFloatInput { .. } => 0,
-            OSRCNode::ApiFloatOutput { .. } => 1,
-            OSRCNode::BitwiseSplit { num_bits } => 1,
+            OSRCNode::ApiInput { .. } => 0,
+            OSRCNode::ApiOutput { .. } => 1,
+            OSRCNode::BitwiseSplit { .. } => 1,
             OSRCNode::BitwiseJoin { num_bits } => *num_bits,
-            OSRCNode::Delay { cycles } => 1,
-            OSRCNode::Converter { num_inputs, .. } => *num_inputs,
+            OSRCNode::EdgeDelay { .. } => 1,
+            OSRCNode::CycleDelay { .. } => 1,
+            OSRCNode::Converter { .. } => 1,
             OSRCNode::SerialDevice { num_write, .. } => 1 + num_write,
             OSRCNode::SerialRead { .. } => 1,
             OSRCNode::SerialWrite { .. } => 1,
-            OSRCNode::GlobalVariableInput { name } => 1,
-            OSRCNode::GlobalVariableOutput { name } => 0,
+            OSRCNode::GlobalVariableInput { .. } => 1,
+            OSRCNode::GlobalVariableOutput { .. } => 0,
             OSRCNode::LogicGate { gtype } => match gtype {
                 GateType::AND(i) => *i,
                 GateType::OR(i) => *i,
@@ -92,6 +93,8 @@ impl SnarlViewer<OSRCNode> for OSRCViewer {
             OSRCNode::Comparator { .. } => 2,
             OSRCNode::Constant { .. } => 0,
             OSRCNode::Multiplexer { input_bits, .. } => input_bits + (1 << input_bits),
+            OSRCNode::PIController { .. } => 1,
+            OSRCNode::VelEstimator { .. } => 1,
         }
     }
 
@@ -109,12 +112,13 @@ impl SnarlViewer<OSRCNode> for OSRCViewer {
 
     fn outputs(&mut self, node: &OSRCNode) -> usize {
         match node {
-            OSRCNode::ApiFloatInput { .. } => 1,
-            OSRCNode::ApiFloatOutput { .. } => 0,
+            OSRCNode::ApiInput { .. } => 1,
+            OSRCNode::ApiOutput { .. } => 0,
             OSRCNode::BitwiseSplit { num_bits } => *num_bits,
             OSRCNode::BitwiseJoin { num_bits } => 1,
-            OSRCNode::Delay { cycles } => 1,
-            OSRCNode::Converter { num_inputs, .. } => *num_inputs,
+            OSRCNode::EdgeDelay { .. } => 1,
+            OSRCNode::CycleDelay { .. } => 1,
+            OSRCNode::Converter { .. } => 1,
             OSRCNode::SerialDevice { num_read, .. } => *num_read,
             OSRCNode::SerialRead { .. } => 1,
             OSRCNode::SerialWrite { .. } => 1,
@@ -126,6 +130,8 @@ impl SnarlViewer<OSRCNode> for OSRCViewer {
             OSRCNode::Constant { .. } => 1,
             OSRCNode::Comparator { .. } => 1,
             OSRCNode::Multiplexer { .. } => 1,
+            OSRCNode::PIController { .. } => 1,
+            OSRCNode::VelEstimator { .. } => 1,
         }
     }
 
@@ -210,22 +216,22 @@ impl SnarlViewer<OSRCNode> for OSRCViewer {
     ) {
         ui.vertical(|ui| {
             match snarl.get_node_mut(node).unwrap() {
-                OSRCNode::ApiFloatInput {
-                    name,
+                OSRCNode::ApiInput {
                     min,
                     max,
                     default,
                     timeout,
                     itype,
+                    node_name,
                 } => {
-                    egui::TextEdit::singleline(name).ui(ui);
+                    egui::TextEdit::singleline(node_name).ui(ui);
                     //let range = Some(RangeInclusive::new(0.0, f32::MAX));
                     let range = None;
                     opt_drag(ui, min, range.clone(), "Min".to_string());
                     opt_drag(ui, max, range.clone(), "Max".to_string());
                     opt_drag(ui, default, range.clone(), "Default".to_string());
                     opt_drag(ui, timeout, range.clone(), "Timeout".to_string());
-                    pintype_sel(ui, itype);
+                    pintype_sel(ui, itype, "Type".to_string());
                 }
                 OSRCNode::BitwiseSplit { num_bits } => {
                     ui.label("Number of bits: ");
@@ -239,16 +245,57 @@ impl SnarlViewer<OSRCNode> for OSRCViewer {
                         .range(RangeInclusive::new(2, 16))
                         .ui(ui);
                 }
-                OSRCNode::Delay { cycles } => {
+                OSRCNode::EdgeDelay { cycles, rising_edge, falling_edge} => {
+                    ui.label("Delay Cycles: ");
+                    egui::DragValue::new(cycles)
+                        .range(RangeInclusive::new(1, 0xFFFF))
+                        .ui(ui);
+
+                    ui.horizontal(|ui| {
+                        ui.radio_value(rising_edge, true, "Rising");
+                        ui.radio_value(rising_edge, false, "Falling");
+                    });
+                }
+                OSRCNode::CycleDelay { cycles, itype} => {
+                    pintype_sel(ui, itype, "Type".to_string());
                     ui.label("Delay Cycles: ");
                     egui::DragValue::new(cycles)
                         .range(RangeInclusive::new(1, 16))
                         .ui(ui);
                 }
-                OSRCNode::Converter { output, num_inputs } => {
-                    drag_bar(ui, num_inputs, Some(RangeInclusive::new(1, 16)));
-                    pintype_sel(ui, output);
-                    //Output Type?
+                OSRCNode::Converter {
+                    input_type,
+                    output_type,
+                    direct_mode,
+                    input_max,
+                    input_min,
+                    output_max,
+                    output_min,
+                    invert,
+                } => {
+                    ui.label("Input type:");
+                    pintype_sel(ui, input_type, "Input Type".to_string());
+                    ui.label("Output type:");
+                    pintype_sel(ui, output_type, "Output Type".to_string());
+
+                    ui.checkbox(direct_mode, "Direct Mode");
+                    
+                    if *direct_mode == false {
+                        ui.end_row();
+                        ui.label("Input Min:");
+                        egui::TextEdit::singleline(input_min).ui(ui);
+                        ui.end_row();
+                        ui.label("Input Max:");
+                        egui::TextEdit::singleline(input_max).ui(ui);
+                        ui.end_row();
+                        ui.label("Output Min:");
+                        egui::TextEdit::singleline(output_min).ui(ui);
+                        ui.end_row();
+                        ui.label("Output Max:");
+                        egui::TextEdit::singleline(output_max).ui(ui);
+                        ui.end_row();
+                        ui.checkbox(invert, "Invert");
+                    }
                 }
                 OSRCNode::SerialDevice {
                     enabled,
@@ -275,10 +322,10 @@ impl SnarlViewer<OSRCNode> for OSRCViewer {
                 }
                 OSRCNode::SerialRead { name, dev, itype }
                 | OSRCNode::SerialWrite { name, dev, itype } => {
-                    ui.label("Name: ");
+                    ui.label("Register Name: ");
                     egui::TextEdit::singleline(name).ui(ui);
                     ui.end_row();
-                    pintype_sel(ui, itype);
+                    pintype_sel(ui, itype, "Type".to_string());
                     ui.radio_value(dev, SerialDeviceReg::AsyncReg { update_cycles: 1 }, "Async");
                     ui.radio_value(
                         dev,
@@ -319,9 +366,9 @@ impl SnarlViewer<OSRCNode> for OSRCViewer {
                 OSRCNode::GlobalVariableOutput { name } => {
                     egui::TextEdit::singleline(name).show(ui);
                 }
-                OSRCNode::ApiFloatOutput { name, itype } => {
-                    TextEdit::singleline(name).show(ui);
-                    pintype_sel(ui, itype);
+                OSRCNode::ApiOutput { node_name, itype } => {
+                    TextEdit::singleline(node_name).show(ui);
+                    pintype_sel(ui, itype, "Type".to_string());
                 }
                 OSRCNode::LogicGate { gtype } => {
                     combo_select(ui, "Select Gate".to_string(), gtype, GateType::iter());
@@ -337,7 +384,7 @@ impl SnarlViewer<OSRCNode> for OSRCViewer {
                     }
                 }
                 OSRCNode::MathOperation { itype, operator } => {
-                    pintype_sel(ui, itype);
+                    pintype_sel(ui, itype, "Type".to_string());
                     combo_select(
                         ui,
                         "Select:".to_string(),
@@ -348,7 +395,7 @@ impl SnarlViewer<OSRCNode> for OSRCViewer {
                         MathOperation::Nary(nary_operation, i) => {
                             combo_select(
                                 ui,
-                                "N-Ary Operator:".to_string(),
+                                "N-Ary Operator".to_string(),
                                 nary_operation,
                                 NaryOperation::iter(),
                             );
@@ -356,13 +403,13 @@ impl SnarlViewer<OSRCNode> for OSRCViewer {
                         }
                         MathOperation::BinaryOperation(binary_operation) => combo_select(
                             ui,
-                            "Binary Operator:".to_string(),
+                            "Binary Operator".to_string(),
                             binary_operation,
                             BinaryOperation::iter(),
                         ),
                         MathOperation::UnaryOperation(unary_operation) => combo_select(
                             ui,
-                            "Unary Operator:".to_string(),
+                            "Unary Operator".to_string(),
                             unary_operation,
                             UnaryOperation::iter(),
                         ),
@@ -370,17 +417,50 @@ impl SnarlViewer<OSRCNode> for OSRCViewer {
                     }
                 }
                 OSRCNode::Invalid => unimplemented!(),
-                OSRCNode::Constant { itype, value } => {
-                    pintype_sel(ui, itype);
+                OSRCNode::Constant { itype, value, node_name} => {
+                    ui.label("Node name: ");
+                    egui::TextEdit::singleline(node_name).ui(ui);
+                    pintype_sel(ui, itype, "Type".to_string());
                     TextEdit::singleline(value).show(ui);
                 }
                 OSRCNode::Comparator { itype, comparison } => {
-                    pintype_sel(ui, itype);
+                    pintype_sel(ui, itype, "Type".to_string());
                     combo_select(ui, "Cmp".to_string(), comparison, ValueCompare::iter());
                 }
                 OSRCNode::Multiplexer { itype, input_bits } => {
-                    pintype_sel(ui, itype);
+                    pintype_sel(ui, itype, "Type".to_string());
                     drag_bar(ui, input_bits, Some(RangeInclusive::new(1, 8)));
+                }
+                OSRCNode::PIController { p, i, i_limit, output_min, output_max, node_name} => {
+                    ui.label("Node name: ");
+                    egui::TextEdit::singleline(node_name).ui(ui);
+                    ui.label("P gain");
+                    egui::DragValue::new(p)
+                        .range(RangeInclusive::new(0.0, f32::MAX))
+                        .ui(ui);
+                    ui.label("I gain ");
+                    egui::DragValue::new(i)
+                        .range(RangeInclusive::new(0.0, f32::MAX))
+                        .ui(ui);
+                    ui.label("I limit ");
+                    egui::DragValue::new(i_limit)
+                        .range(RangeInclusive::new(0.0, f32::MAX))
+                        .ui(ui);
+                    ui.label("Min Output: ");
+                    egui::DragValue::new(output_min)
+                        .range(RangeInclusive::new(f32::MIN, f32::MAX))
+                        .ui(ui);
+                    ui.label("Max Output: ");
+                    egui::DragValue::new(output_max)
+                        .range(RangeInclusive::new(f32::MIN, f32::MAX))
+                        .ui(ui);
+                }
+                OSRCNode::VelEstimator { itype, alpha} => {
+                    pintype_sel(ui, itype, "Type".to_string());
+                    ui.label("Alpha: ");
+                    egui::DragValue::new(alpha)
+                        .range(RangeInclusive::new(0, 1))
+                        .ui(ui);
                 }
             }
         });

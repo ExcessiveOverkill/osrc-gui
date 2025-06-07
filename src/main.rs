@@ -138,7 +138,7 @@ impl OsrcApp {
 }
 
 fn osrc_file_dialog() -> FileDialog {
-    FileDialog::new().add_filter("OSRC File", &["osrc"])
+    FileDialog::new().add_filter("OSRC File", &["osrc", "json"])
 }
 
 impl eframe::App for OsrcApp {
@@ -178,7 +178,7 @@ impl eframe::App for OsrcApp {
                                 let loc = osrc_file_dialog().save_file();
                                 if loc.is_some() {
                                     let mut loc = loc.unwrap();
-                                    loc.set_extension("osrc");
+                                    loc.set_extension("json");  // use .json for now
                                     self.file = Some(loc);
                                     self.load_file();
 
