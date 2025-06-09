@@ -236,13 +236,13 @@ impl SnarlViewer<OSRCNode> for OSRCViewer {
                 OSRCNode::BitwiseSplit { num_bits } => {
                     ui.label("Number of bits: ");
                     egui::DragValue::new(num_bits)
-                        .range(RangeInclusive::new(2, 16))
+                        .range(RangeInclusive::new(2, 32))
                         .ui(ui);
                 }
                 OSRCNode::BitwiseJoin { num_bits } => {
                     ui.label("Number of bits: ");
                     egui::DragValue::new(num_bits)
-                        .range(RangeInclusive::new(2, 16))
+                        .range(RangeInclusive::new(2, 32))
                         .ui(ui);
                 }
                 OSRCNode::EdgeDelay { cycles, rising_edge, falling_edge} => {
@@ -304,7 +304,12 @@ impl SnarlViewer<OSRCNode> for OSRCViewer {
                     descriptor,
                     num_read,
                     num_write,
+                    node_name
                 } => {
+                    ui.label("Node Name: ");
+                    egui::TextEdit::singleline(node_name).ui(ui);
+
+
                     ui.label("File Descriptor:");
                     egui::TextEdit::singleline(descriptor).ui(ui);
 
@@ -456,7 +461,6 @@ impl SnarlViewer<OSRCNode> for OSRCViewer {
                         .ui(ui);
                 }
                 OSRCNode::VelEstimator { itype, alpha} => {
-                    pintype_sel(ui, itype, "Type".to_string());
                     ui.label("Alpha: ");
                     egui::DragValue::new(alpha)
                         .range(RangeInclusive::new(0, 1))

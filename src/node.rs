@@ -43,7 +43,6 @@ pub enum OSRCNode {
         node_name: String,
     },
     VelEstimator {
-        itype: PinType,
         alpha: f32,
     },
     LogicGate {
@@ -93,6 +92,7 @@ pub enum OSRCNode {
         descriptor: String,
         num_read: usize,
         num_write: usize,
+        node_name: String,
     },
     SerialRead {
         name: String,
@@ -155,7 +155,6 @@ pub enum NaryOperation {
     #[default]
     ADD,
     MUL,
-    DIV,
     MIN,
     MAX,
     AVG
@@ -165,7 +164,7 @@ pub enum NaryOperation {
 derive_node! {
 pub enum BinaryOperation {
     #[default]
-    SQRT,
+    ROOT,
     POW,
     LOG,
 }
@@ -220,7 +219,7 @@ impl OSRCNode {
                 }
             },
             (OSRCNode::PIController { .. }, _) => PinType::F32,
-            (OSRCNode::VelEstimator { itype, .. }, _) => *itype,
+            (OSRCNode::VelEstimator { .. }, _) => PinType::F64,
         }
     }
 
@@ -259,7 +258,7 @@ impl OSRCNode {
             (OSRCNode::Comparator { .. }, _) => PinType::Bool,
             (OSRCNode::Multiplexer { itype, .. }, _) => *itype,
             (OSRCNode::PIController { .. }, _) => PinType::F32,
-            (OSRCNode::VelEstimator { itype, .. }, _) => *itype,
+            (OSRCNode::VelEstimator { .. }, _) => PinType::F32,
         }
     }
     // pub fn output_value(&self, idx: usize) ->
