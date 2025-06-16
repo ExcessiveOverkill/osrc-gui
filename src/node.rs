@@ -1,4 +1,5 @@
 use std::fmt::{Debug, Display};
+use std::pin::Pin;
 
 use convert_case::Casing;
 use egui::{Color32, ComboBox, Ui};
@@ -69,7 +70,9 @@ pub enum OSRCNode {
     EdgeDelay {
         cycles: usize,
         rising_edge: bool,
-        falling_edge: bool,
+    },
+    EdgeDetect {
+        rising_edge: bool,
     },
     CycleDelay {
         cycles: usize,
@@ -85,6 +88,10 @@ pub enum OSRCNode {
         output_max: String,
         invert: bool,
     },
+    Print {
+        name: String,
+        itype: PinType,
+    },
     SerialDevice {
         enabled: bool,
         addr: u16,
@@ -92,6 +99,7 @@ pub enum OSRCNode {
         descriptor: String,
         num_read: usize,
         num_write: usize,
+        num_set: usize,
         node_name: String,
     },
     SerialRead {
@@ -104,10 +112,14 @@ pub enum OSRCNode {
         dev: SerialDeviceReg,
         itype: PinType,
     },
-    GlobalVariableInput {
+    SerialSet {
+        name: String,
+        value: String,
+    },
+    SetGlobalVariable {
         name: String,
     },
-    GlobalVariableOutput {
+    GetGlobalVariable {
         name: String,
     },
     #[strum(disabled)]
@@ -115,6 +127,7 @@ pub enum OSRCNode {
     Invalid
 }
 }
+
 
 derive_node! {
     pub enum ValueCompare {
@@ -154,7 +167,9 @@ derive_node! {
 pub enum NaryOperation {
     #[default]
     ADD,
+    SUB,
     MUL,
+    DIV,
     MIN,
     MAX,
     AVG
@@ -198,14 +213,29 @@ impl OSRCNode {
             (OSRCNode::BitwiseSplit { num_bits }, _) => PinType::from_size(*num_bits),
             (OSRCNode::BitwiseJoin { num_bits }, _) => PinType::Bool,
             (OSRCNode::EdgeDelay { cycles, .. }, _) => PinType::Bool,
+            (OSRCNode::EdgeDetect { .. }, _) => PinType::Bool,
             (OSRCNode::CycleDelay { cycles, itype, .. }, _) => *itype,
             (OSRCNode::Converter { input_type,   .. }, _) => *input_type,
             (OSRCNode::LogicGate { .. }, _) => PinType::Bool,
+            (OSRCNode::Print { itype, .. }, idx) => {
+                if idx == 0 {
+                    *itype
+                } else {
+                    PinType::Bool
+                }
+            }
             (OSRCNode::SerialDevice { .. }, idx) => OSRCNode::serial_type(idx),
             (OSRCNode::SerialWrite { itype, .. }, _) => *itype,
+            (OSRCNode::SerialSet { .. }, _) => PinType::NONE,
             (OSRCNode::SerialRead { .. }, _) => PinType::SERIAL,
-            (OSRCNode::GlobalVariableOutput { .. }, _) => PinType::NONE,
-            (OSRCNode::GlobalVariableInput { .. }, _) => PinType::UNDEFINED,
+            (OSRCNode::GetGlobalVariable { .. }, _) => PinType::NONE,
+            (OSRCNode::SetGlobalVariable { .. }, idx) => {
+                if idx == 0 {
+                    PinType::UNDEFINED
+                } else {
+                    PinType::Bool
+                }
+            },
             (OSRCNode::MathOperation { itype, .. }, _) => *itype,
             (OSRCNode::ApiInput { .. }, _) => PinType::NONE,
             (OSRCNode::Invalid, _) => PinType::NONE,
@@ -218,7 +248,13 @@ impl OSRCNode {
                     *itype
                 }
             },
-            (OSRCNode::PIController { .. }, _) => PinType::F32,
+            (OSRCNode::PIController { .. }, idx) => {
+                if idx == 0 {
+                    PinType::F32
+                } else {
+                    PinType::Bool
+                }
+            },
             (OSRCNode::VelEstimator { .. }, _) => PinType::F64,
         }
     }
@@ -241,14 +277,17 @@ impl OSRCNode {
             (OSRCNode::BitwiseSplit { num_bits }, _) => PinType::Bool,
             (OSRCNode::BitwiseJoin { num_bits }, _) => PinType::from_size(*num_bits),
             (OSRCNode::EdgeDelay { cycles, .. }, _) => PinType::Bool,
+            (OSRCNode::EdgeDetect { .. }, _) => PinType::Bool,
             (OSRCNode::CycleDelay { cycles, itype, .. }, _) => *itype,
             (OSRCNode::Converter { output_type, .. }, _) => *output_type,
             (OSRCNode::LogicGate { gtype }, _) => PinType::Bool,
+            (OSRCNode::Print { .. }, _) => PinType::UNDEFINED,
             (OSRCNode::SerialDevice { .. }, _) => PinType::SERIAL,
             (OSRCNode::SerialWrite { .. }, _) => PinType::SERIAL,
+            (OSRCNode::SerialSet { .. }, _) => PinType::SERIAL,
             (OSRCNode::SerialRead { itype, .. }, _) => *itype,
-            (OSRCNode::GlobalVariableInput { name }, _) => PinType::UNDEFINED,
-            (OSRCNode::GlobalVariableOutput { name }, _) => PinType::UNDEFINED,
+            (OSRCNode::SetGlobalVariable { name }, _) => PinType::UNDEFINED,
+            (OSRCNode::GetGlobalVariable { name }, _) => PinType::UNDEFINED,
             //TODO:
             //Query these from list!
             (OSRCNode::MathOperation { itype, .. }, _) => *itype,
@@ -257,7 +296,13 @@ impl OSRCNode {
             (OSRCNode::Constant { itype, .. }, _) => *itype,
             (OSRCNode::Comparator { .. }, _) => PinType::Bool,
             (OSRCNode::Multiplexer { itype, .. }, _) => *itype,
-            (OSRCNode::PIController { .. }, _) => PinType::F32,
+            (OSRCNode::PIController { .. }, idx) => {
+                if idx == 0 {
+                    PinType::F32
+                } else {
+                    PinType::Bool
+                }
+            },
             (OSRCNode::VelEstimator { .. }, _) => PinType::F32,
         }
     }

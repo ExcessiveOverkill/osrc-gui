@@ -1,4 +1,4 @@
-use std::{collections::btree_map::Range, ops::RangeInclusive};
+use std::{collections::btree_map::Range, env::consts::OS, ops::RangeInclusive};
 
 use convert_case::Casing;
 use egui::{TextEdit, Ui, Widget, emath::Numeric};
@@ -68,13 +68,15 @@ impl SnarlViewer<OSRCNode> for OSRCViewer {
             OSRCNode::BitwiseSplit { .. } => 1,
             OSRCNode::BitwiseJoin { num_bits } => *num_bits,
             OSRCNode::EdgeDelay { .. } => 1,
+            OSRCNode::EdgeDetect { .. } => 1,
             OSRCNode::CycleDelay { .. } => 1,
             OSRCNode::Converter { .. } => 1,
-            OSRCNode::SerialDevice { num_write, .. } => 1 + num_write,
+            OSRCNode::SerialDevice { num_write, num_set, .. } => 1 + num_write + num_set,
             OSRCNode::SerialRead { .. } => 1,
             OSRCNode::SerialWrite { .. } => 1,
-            OSRCNode::GlobalVariableInput { .. } => 1,
-            OSRCNode::GlobalVariableOutput { .. } => 0,
+            OSRCNode::SerialSet { .. } => 0,
+            OSRCNode::SetGlobalVariable { .. } => 2,
+            OSRCNode::GetGlobalVariable { .. } => 0,
             OSRCNode::LogicGate { gtype } => match gtype {
                 GateType::AND(i) => *i,
                 GateType::OR(i) => *i,
@@ -83,6 +85,7 @@ impl SnarlViewer<OSRCNode> for OSRCViewer {
                 GateType::XOR(i) => *i,
                 GateType::NOT => 1,
             },
+            OSRCNode::Print { .. } => 2,
             OSRCNode::MathOperation { operator, .. } => match operator {
                 crate::node::MathOperation::Nary(nary_operation, n) => *n,
                 crate::node::MathOperation::BinaryOperation(binary_operation) => 2,
@@ -93,7 +96,7 @@ impl SnarlViewer<OSRCNode> for OSRCViewer {
             OSRCNode::Comparator { .. } => 2,
             OSRCNode::Constant { .. } => 0,
             OSRCNode::Multiplexer { input_bits, .. } => input_bits + (1 << input_bits),
-            OSRCNode::PIController { .. } => 1,
+            OSRCNode::PIController { .. } => 2,
             OSRCNode::VelEstimator { .. } => 1,
         }
     }
@@ -117,20 +120,23 @@ impl SnarlViewer<OSRCNode> for OSRCViewer {
             OSRCNode::BitwiseSplit { num_bits } => *num_bits,
             OSRCNode::BitwiseJoin { num_bits } => 1,
             OSRCNode::EdgeDelay { .. } => 1,
+            OSRCNode::EdgeDetect { .. } => 1,
             OSRCNode::CycleDelay { .. } => 1,
             OSRCNode::Converter { .. } => 1,
             OSRCNode::SerialDevice { num_read, .. } => *num_read,
             OSRCNode::SerialRead { .. } => 1,
             OSRCNode::SerialWrite { .. } => 1,
-            OSRCNode::GlobalVariableInput { name } => 0,
-            OSRCNode::GlobalVariableOutput { name } => 1,
+            OSRCNode::SerialSet { .. } => 1,
+            OSRCNode::SetGlobalVariable { name } => 0,
+            OSRCNode::GetGlobalVariable { name } => 1,
             OSRCNode::LogicGate { .. } => 1,
+            OSRCNode::Print { .. } => 0,
             OSRCNode::MathOperation { .. } => 1,
             OSRCNode::Invalid => 0,
             OSRCNode::Constant { .. } => 1,
             OSRCNode::Comparator { .. } => 1,
             OSRCNode::Multiplexer { .. } => 1,
-            OSRCNode::PIController { .. } => 1,
+            OSRCNode::PIController { .. } => 2,
             OSRCNode::VelEstimator { .. } => 1,
         }
     }
@@ -245,12 +251,18 @@ impl SnarlViewer<OSRCNode> for OSRCViewer {
                         .range(RangeInclusive::new(2, 32))
                         .ui(ui);
                 }
-                OSRCNode::EdgeDelay { cycles, rising_edge, falling_edge} => {
+                OSRCNode::EdgeDelay { cycles, rising_edge} => {
                     ui.label("Delay Cycles: ");
                     egui::DragValue::new(cycles)
                         .range(RangeInclusive::new(1, 0xFFFF))
                         .ui(ui);
 
+                    ui.horizontal(|ui| {
+                        ui.radio_value(rising_edge, true, "Rising");
+                        ui.radio_value(rising_edge, false, "Falling");
+                    });
+                }
+                OSRCNode::EdgeDetect {rising_edge } => {
                     ui.horizontal(|ui| {
                         ui.radio_value(rising_edge, true, "Rising");
                         ui.radio_value(rising_edge, false, "Falling");
@@ -304,10 +316,25 @@ impl SnarlViewer<OSRCNode> for OSRCViewer {
                     descriptor,
                     num_read,
                     num_write,
+                    num_set,
                     node_name
                 } => {
                     ui.label("Node Name: ");
                     egui::TextEdit::singleline(node_name).ui(ui);
+
+                    ui.checkbox(enabled, "Enabled");
+
+                    ui.end_row();
+                    ui.label("Address: ");
+                    egui::DragValue::new(addr)
+                        .range(RangeInclusive::new(0, 255))
+                        .ui(ui);
+                    ui.end_row();
+
+                    ui.label("Timeout: ");
+                    egui::DragValue::new(timeout)
+                        .range(RangeInclusive::new(0, 100))
+                        .ui(ui);
 
 
                     ui.label("File Descriptor:");
@@ -322,6 +349,12 @@ impl SnarlViewer<OSRCNode> for OSRCViewer {
                     ui.end_row();
                     ui.label("Num Writing: ");
                     egui::DragValue::new(num_write)
+                        .range(RangeInclusive::new(0, 32))
+                        .ui(ui);
+
+                    ui.end_row();
+                    ui.label("Num Set: ");
+                    egui::DragValue::new(num_set)
                         .range(RangeInclusive::new(0, 32))
                         .ui(ui);
                 }
@@ -356,19 +389,27 @@ impl SnarlViewer<OSRCNode> for OSRCViewer {
                             ui.checkbox(sync_node, "Sync Node");
 
                             ui.end_row();
-                            ui.label("Update Rate: ");
+                            ui.label("Cyclic Index: ");
                             egui::DragValue::new(cyclic_index)
-                                .range(RangeInclusive::new(0, 1 << 16))
+                                .range(RangeInclusive::new(0, 64))
                                 .ui(ui);
                             //
                         }
                         SerialDeviceReg::None => {}
                     }
                 }
-                OSRCNode::GlobalVariableInput { name } => {
+                OSRCNode::SerialSet { name, value, } => {
+                    ui.label("Register Name: ");
+                    egui::TextEdit::singleline(name).ui(ui);
+                    ui.end_row();
+
+                    ui.label("Value: ");
+                    egui::TextEdit::singleline(value).ui(ui);
+                }
+                OSRCNode::SetGlobalVariable { name } => {
                     egui::TextEdit::singleline(name).show(ui);
                 }
-                OSRCNode::GlobalVariableOutput { name } => {
+                OSRCNode::GetGlobalVariable { name } => {
                     egui::TextEdit::singleline(name).show(ui);
                 }
                 OSRCNode::ApiOutput { node_name, itype } => {
@@ -387,6 +428,11 @@ impl SnarlViewer<OSRCNode> for OSRCViewer {
                         }
                         GateType::NOT => {}
                     }
+                }
+                OSRCNode::Print { name, itype } => {
+                    ui.label("Name: ");
+                    egui::TextEdit::singleline(name).ui(ui);
+                    pintype_sel(ui, itype, "Type".to_string());
                 }
                 OSRCNode::MathOperation { itype, operator } => {
                     pintype_sel(ui, itype, "Type".to_string());
@@ -460,7 +506,7 @@ impl SnarlViewer<OSRCNode> for OSRCViewer {
                         .range(RangeInclusive::new(f32::MIN, f32::MAX))
                         .ui(ui);
                 }
-                OSRCNode::VelEstimator { itype, alpha} => {
+                OSRCNode::VelEstimator { alpha} => {
                     ui.label("Alpha: ");
                     egui::DragValue::new(alpha)
                         .range(RangeInclusive::new(0, 1))

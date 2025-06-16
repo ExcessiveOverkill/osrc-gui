@@ -37,6 +37,7 @@ impl GlobalVariable {
 pub struct Network {
     pub name: String,
     pub enabled: bool,
+    pub dynamic_enable_starting: bool,
     pub net_type: NetworkType,
     pub timeout: u32,
     pub update_cycle_trigger_count: u32,
@@ -56,6 +57,7 @@ impl Network {
         Network {
             name,
             enabled: true,
+            dynamic_enable_starting: true,
             net_type: NetworkType::Sync,
             timeout: 10000,
             update_cycle_trigger_count: 1,

@@ -286,6 +286,11 @@ impl eframe::App for OsrcApp {
                     ui.end_row();
                     ui.checkbox(&mut net.enabled, "Enabled");
                     ui.end_row();
+                    ui.checkbox(
+                        &mut net.dynamic_enable_starting,
+                        "Dynamic Enable Starting",
+                    );
+                    ui.end_row();
                     ui.horizontal(|ui| {
                         ui.label("Type:");
                         if ui
