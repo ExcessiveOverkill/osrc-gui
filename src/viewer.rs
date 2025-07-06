@@ -86,6 +86,8 @@ impl SnarlViewer<OSRCNode> for OSRCViewer {
                 GateType::NOT => 1,
             },
             OSRCNode::Print { .. } => 2,
+            OSRCNode::Kins { .. } => 25,
+            OSRCNode::Mouse { .. } => 6,
             OSRCNode::MathOperation { operator, .. } => match operator {
                 crate::node::MathOperation::Nary(nary_operation, n) => *n,
                 crate::node::MathOperation::BinaryOperation(binary_operation) => 2,
@@ -131,6 +133,8 @@ impl SnarlViewer<OSRCNode> for OSRCViewer {
             OSRCNode::GetGlobalVariable { name } => 1,
             OSRCNode::LogicGate { .. } => 1,
             OSRCNode::Print { .. } => 0,
+            OSRCNode::Kins { .. } => 12,
+            OSRCNode::Mouse { .. } => 6,
             OSRCNode::MathOperation { .. } => 1,
             OSRCNode::Invalid => 0,
             OSRCNode::Constant { .. } => 1,
@@ -433,6 +437,14 @@ impl SnarlViewer<OSRCNode> for OSRCViewer {
                     ui.label("Name: ");
                     egui::TextEdit::singleline(name).ui(ui);
                     pintype_sel(ui, itype, "Type".to_string());
+                }
+                OSRCNode::Kins { name, .. } => {
+                    ui.label("Kins: ");
+                    egui::TextEdit::singleline(name).ui(ui);
+                }
+                OSRCNode::Mouse { name, .. } => {
+                    ui.label("Mouse: ");
+                    egui::TextEdit::singleline(name).ui(ui);
                 }
                 OSRCNode::MathOperation { itype, operator } => {
                     pintype_sel(ui, itype, "Type".to_string());

@@ -92,6 +92,12 @@ pub enum OSRCNode {
         name: String,
         itype: PinType,
     },
+    Kins {
+        name: String
+    },
+    Mouse {
+        name: String
+    },
     SerialDevice {
         enabled: bool,
         addr: u16,
@@ -223,7 +229,31 @@ impl OSRCNode {
                 } else {
                     PinType::Bool
                 }
-            }
+            },
+            (OSRCNode::Kins { .. }, idx) => {
+                if idx < 12 {
+                    PinType::F64    // joint fbk pos and joint cmd pos
+                } else if idx < 12 + 6 {
+                    PinType::F32    // xyz cmd pos
+                } else if idx == 18 {
+                    PinType::U8   // jog_axis_select
+                } else if idx == 19 {
+                    PinType::F32   // jog_vel
+                } else if idx == 20 {
+                    PinType::U8   // jog_mode
+                } else if idx == 21 {
+                    PinType::U8   // control_mode
+                } else if idx == 22 {
+                    PinType::F32   // speed_override
+                } else if idx == 23 {
+                    PinType::U8   // tool select
+                } else if idx == 24 {
+                    PinType::Bool   // reset
+                } else {
+                    PinType::UNDEFINED
+                }
+            },
+            (OSRCNode::Mouse { .. }, _) => PinType::I32,
             (OSRCNode::SerialDevice { .. }, idx) => OSRCNode::serial_type(idx),
             (OSRCNode::SerialWrite { itype, .. }, _) => *itype,
             (OSRCNode::SerialSet { .. }, _) => PinType::NONE,
@@ -282,6 +312,16 @@ impl OSRCNode {
             (OSRCNode::Converter { output_type, .. }, _) => *output_type,
             (OSRCNode::LogicGate { gtype }, _) => PinType::Bool,
             (OSRCNode::Print { .. }, _) => PinType::UNDEFINED,
+            (OSRCNode::Kins { .. }, idx) => {
+                if idx < 6 {
+                    PinType::F64    // joint cmd pos
+                } else if idx < 12 + 6 {
+                    PinType::F32    // xyz fbk pos
+                } else {
+                    PinType::UNDEFINED
+                }
+            },
+            (OSRCNode::Mouse { .. }, _) => PinType::F32,
             (OSRCNode::SerialDevice { .. }, _) => PinType::SERIAL,
             (OSRCNode::SerialWrite { .. }, _) => PinType::SERIAL,
             (OSRCNode::SerialSet { .. }, _) => PinType::SERIAL,

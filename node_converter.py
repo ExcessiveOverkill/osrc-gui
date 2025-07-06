@@ -352,6 +352,283 @@ def convert_node(nodeType: str, data: dict, id: str) -> dict:
         pinData["in"]["0"] = "input"
         pinData["in"]["1"] = "enable"
 
+    elif nodeType == "Kins":
+
+        # manual setting overrides
+
+        dhparams = []
+        dhparams.append({
+            "alpha": -90.0,
+            "a": 0.150,
+            "d": 0.0,
+            "theta": 0.0
+        })
+        dhparams.append({
+            "alpha": 0.0,
+            "a": 0.570,
+            "d": 0.0,
+            "theta": -90.0
+        })
+        dhparams.append({
+            "alpha": -90.0,
+            "a": 0.130,
+            "d": 0.0,
+            "theta": 0.0
+        })
+        dhparams.append({
+            "alpha": 90.0,
+            "a": 0.0,
+            "d": 0.640,
+            "theta": 0.0
+        })
+        dhparams.append({
+            "alpha": -90.0,
+            "a": 0.0,
+            "d": 0.0,
+            "theta": 90.0
+        })
+        dhparams.append({
+            "alpha": 0.0,
+            "a": 0.0,
+            "d": 0.095,
+            "theta": 0.0
+        })
+        
+        limits = {}
+        limits["0"] = {
+            "min_pos": -90,
+            "max_pos": 90,
+            "max_vel": 140,
+            "max_acc": 100
+        }
+        limits["1"] = {
+            "min_pos": -90,
+            "max_pos": 90,
+            "max_vel": 160,
+            "max_acc": 100
+        }
+        limits["2"] = {
+            "min_pos": -78,
+            "max_pos": 90,
+            "max_vel": 170,
+            "max_acc": 100
+        }
+        limits["3"] = {
+            "min_pos": 0,
+            "max_pos": 0,
+            "max_vel": 335,
+            "max_acc": 100
+        }
+        limits["4"] = {
+            "min_pos": -45,
+            "max_pos": 225,
+            "max_vel": 335,
+            "max_acc": 100
+        }
+        limits["5"] = {
+            "min_pos": 0,
+            "max_pos": 0,
+            "max_vel": 500,
+            "max_acc": 100
+        }
+
+        cartesian_limits = {}
+        cartesian_limits["x"] = {
+            "min_pos": -1000,
+            "max_pos": 1000,
+            "max_vel": 1,   # m/s
+            "max_acc": 10   # m/s^2
+        }
+        cartesian_limits["y"] = {
+            "min_pos": -1000,
+            "max_pos": 1000,
+            "max_vel": 1,
+            "max_acc": 10
+        }
+        cartesian_limits["z"] = {
+            "min_pos": -1000,
+            "max_pos": 1000,
+            "max_vel": 1,
+            "max_acc": 10
+        }
+        cartesian_limits["xangle"] = {
+            "min_pos": -180,
+            "max_pos": 180,
+            "max_vel": 300,  # degrees/s
+            "max_acc": 100   # degrees/s^2
+        }
+        cartesian_limits["yangle"] = {
+            "min_pos": -180,
+            "max_pos": 180,
+            "max_vel": 300,
+            "max_acc": 100
+        }
+        cartesian_limits["zangle"] = {
+            "min_pos": -180,
+            "max_pos": 180,
+            "max_vel": 300,
+            "max_acc": 100
+        }
+
+        tools = []
+        # tools.append({  # tool 1, marker
+        #     "position": [-0.1, 0.0, 0.037],
+        #     "orientation": [0.0, 0.0, 0.0]
+        # })
+        tools.append({  # tool 1, marker offset to match mouse pen tip
+            "position": [0.02, 0.0, 0.037],
+            "orientation": [0.0, 0.0, 0.0]
+        })
+
+        tools.append({  # tool 2, stamp
+            "position": [0.0, 0.0, 0.1],
+            "orientation": [0.0, 0.0, 0.0]
+        })
+
+        tools.append({  # tool 3, foam block holder
+            "position": [0.02, 0.0, 0.046],
+            "orientation": [0.0, 0.0, 0.0]
+        })
+
+        outNode["type"] = "kins"
+        outNode["config"] = {
+            "dh_params": dhparams,
+            "limits": limits,
+            "max_jog_speed": 0.1,
+            "cartesian_limits": cartesian_limits,
+            "tools": tools,
+        }
+        key = data["name"]
+        pinData["in"]["0"] = "j1_fbk_pos"
+        pinData["in"]["1"] = "j2_fbk_pos"
+        pinData["in"]["2"] = "j3_fbk_pos"
+        pinData["in"]["3"] = "j4_fbk_pos"
+        pinData["in"]["4"] = "j5_fbk_pos"
+        pinData["in"]["5"] = "j6_fbk_pos"
+        pinData["in"]["6"] = "j1_cmd_pos"
+        pinData["in"]["7"] = "j2_cmd_pos"
+        pinData["in"]["8"] = "j3_cmd_pos"
+        pinData["in"]["9"] = "j4_cmd_pos"
+        pinData["in"]["10"] = "j5_cmd_pos"
+        pinData["in"]["11"] = "j6_cmd_pos"
+        pinData["in"]["12"] = "x_cmd_pos"
+        pinData["in"]["13"] = "y_cmd_pos"
+        pinData["in"]["14"] = "z_cmd_pos"
+        pinData["in"]["15"] = "xangle_cmd_pos"
+        pinData["in"]["16"] = "yangle_cmd_pos"
+        pinData["in"]["17"] = "zangle_cmd_pos"
+        pinData["in"]["18"] = "jog_axis_select"
+        pinData["in"]["19"] = "jog_vel"
+        pinData["in"]["20"] = "jog_mode"
+        pinData["in"]["21"] = "control_mode"
+        pinData["in"]["22"] = "speed_override"
+        pinData["in"]["23"] = "tool_select"
+        pinData["in"]["24"] = "reset"
+
+        pinData["out"]["0"] = "j1_cmd_pos"
+        pinData["out"]["1"] = "j2_cmd_pos"
+        pinData["out"]["2"] = "j3_cmd_pos"
+        pinData["out"]["3"] = "j4_cmd_pos"
+        pinData["out"]["4"] = "j5_cmd_pos"
+        pinData["out"]["5"] = "j6_cmd_pos"
+        pinData["out"]["6"] = "x_fbk_pos"
+        pinData["out"]["7"] = "y_fbk_pos"
+        pinData["out"]["8"] = "z_fbk_pos"
+        pinData["out"]["9"] = "xangle_fbk_pos"
+        pinData["out"]["10"] = "yangle_fbk_pos"
+        pinData["out"]["11"] = "zangle_fbk_pos"
+
+    elif nodeType == "Mouse":
+
+        # manual setting overrides
+
+        dhparams = []
+        dhparams.append({
+            "alpha": -90.0,
+            "a": 0.0,
+            "d": 0.0,
+            "theta": 0.0
+        })
+        dhparams.append({
+            "alpha": 0.0,
+            "a": 0.210,
+            "d": 0.0,
+            "theta": -90.0
+        })
+        dhparams.append({
+            "alpha": -90.0,
+            "a": 0.0,
+            "d": 0.0,
+            "theta": 0.0
+        })
+        dhparams.append({
+            "alpha": 90.0,
+            "a": 0.0,
+            "d": 0.210,
+            "theta": 0.0
+        })
+        dhparams.append({
+            "alpha": -90.0,
+            "a": 0.0,
+            "d": 0.0,
+            "theta": 90.0
+        })
+        dhparams.append({
+            "alpha": 0.0,
+            "a": 0.0,
+            "d": 0.0,
+            "theta": 0.0
+        })
+
+        GEAR_MOTOR_COUNT_PER_REV = 57.0/13.0 * 1000.0 * 4.0
+        
+        joint_params = []
+        joint_params.append({
+                "count_per_rev": GEAR_MOTOR_COUNT_PER_REV * 14,
+                "home_pos": 53000
+            })
+        joint_params.append({
+                "count_per_rev": GEAR_MOTOR_COUNT_PER_REV * 11.56,
+                "home_pos": -42000
+            })
+        joint_params.append({
+                "count_per_rev": GEAR_MOTOR_COUNT_PER_REV * 11.56,
+                "home_pos": -56300
+            })
+        joint_params.append({
+                "count_per_rev": 2048,
+                "home_pos": -49
+            })
+        joint_params.append({
+                "count_per_rev": -2048,
+                "home_pos": -57
+            })
+        joint_params.append({
+                "count_per_rev": -2048,
+                "home_pos": 1024
+            })
+
+
+        outNode["type"] = "mouse"
+        outNode["config"] = {
+            "dh_params": dhparams,
+            "joint_params": joint_params
+        }
+        key = data["name"]
+        pinData["in"]["0"] = "j1_fbk_pos"
+        pinData["in"]["1"] = "j2_fbk_pos"
+        pinData["in"]["2"] = "j3_fbk_pos"
+        pinData["in"]["3"] = "j4_fbk_pos"
+        pinData["in"]["4"] = "j5_fbk_pos"
+        pinData["in"]["5"] = "j6_fbk_pos"
+
+        pinData["out"]["0"] = "x_fbk_pos"
+        pinData["out"]["1"] = "y_fbk_pos"
+        pinData["out"]["2"] = "z_fbk_pos"
+        pinData["out"]["3"] = "xangle_fbk_pos"
+        pinData["out"]["4"] = "yangle_fbk_pos"
+        pinData["out"]["5"] = "zangle_fbk_pos"
+
     elif nodeType == "SerialDevice":
         outNode["type"] = "em_serial_device"
         pinData["in"]["0"] = "em_device"
