@@ -914,4 +914,4 @@ if __name__ == "__main__":
     print(outConfig)
 
     # save the output config
-    save_json_file(os.path.expanduser("~/github/controller-software/controller-software/core/zynq_files/controller/config/user/new_node_config.json"), outConfig)
+    save_json_file(os.path.expanduser("~/Documents/GitHub/controller-software/controller-software/core/zynq_files/controller/config/user/new_node_config.json"), outConfig)
